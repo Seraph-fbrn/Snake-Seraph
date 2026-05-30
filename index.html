@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Snake 3310</title>
+<style>
+  :root{
+    --body-1:#3a3d42;
+    --body-2:#24262b;
+    --body-3:#15161a;
+    --bezel:#0c0d10;
+    --lcd-bg:#0d2010;          /* off pixel / sfondo schermo */
+    --lcd-grid:rgba(150,230,90,.06);
+    --lcd-on:#a7f24f;          /* pixel acceso */
+    --lcd-glow:rgba(140,240,70,.55);
+    --btn:#2b2d33;
+    --btn-edge:#101115;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;}
+  body{
+    font-family:monospace;
+    background:radial-gradient(circle at 50% 30%,#1b1c20 0%,#0a0a0c 70%);
+    color:#aaa;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    min-height:100dvh;
+    padding:16px;
+    overflow:hidden;
+    user-select:none;
+  }
+
+  /* ---- corpo telefono ---- */
+  .phone{
+    width:300px;
+    max-width:92vw;
+    background:linear-gradient(160deg,var(--body-1),var(--body-2) 45%,var(--body-3));
+    border-radius:34px 34px 46px 46px;
+    padding:22px 20px 26px;
+    box-shadow:
+      0 22px 50px rgba(0,0,0,.6),
+      inset 0 2px 2px rgba(255,255,255,.08),
+      inset 0 -6px 14px rgba(0,0,0,.55);
+    position:relative;
+  }
+  .brand{
+    text-align:center;
+    font-weight:bold;
+    letter-spacing:5px;
+    font-size:13px;
+    color:#9a9da3;
+    text-shadow:0 1px 0 rgba(0,0,0,.6);
+    margin-bottom:14px;
+  }
+  .speaker{
+    width:46px;height:5px;border-radius:5px;
+    background:var(--body-3);
+    box-shadow:inset 0 1px 2px rgba(0,0,0,.8);
+    margin:0 auto 12px;
+  }
+
+  /* ---- schermo ---- */
+  .screen-wrap{
+    background:var(--bezel);
+    border-radius:8px;
+    padding:10px;
+    box-shadow:inset 0 2px 6px rgba(0,0,0,.9);
+  }
+  .screen{
+    position:relative;
+    background:var(--lcd-bg);
+    border-radius:3px;
+    overflow:hidden;
+    box-shadow:inset 0 0 14px rgba(0,0,0,.7);
+  }
+  canvas{
+    display:block;
+    width:100%;
+    height:auto;
+    image-rendering:pixelated;
+    image-rendering:crisp-edges;
+    filter:drop-shadow(0 0 2px var(--lcd-glow));
+  }
+  /* vignettatura + righe LCD sopra al canvas */
+  .screen::after{
+    content:"";
+    position:absolute;inset:0;
+    pointer-events:none;
+    background:
+      repeating-linear-gradient(0deg,rgba(0,0,0,.10) 0 1px,transparent 1px 3px),
+      radial-gradient(circle at 50% 45%,transparent 55%,rgba(0,0,0,.35) 100%);
+    mix-blend-mode:multiply;
+  }
+
+  /* ---- comandi ---- */
+  .pad{
+    margin-top:20px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:8px;
+  }
+  .dpad{
+    display:grid;
+    grid-template-columns:repeat(3,46px);
+    grid-template-rows:repeat(3,40px);
+    gap:5px;
+  }
+  .key{
+    background:linear-gradient(180deg,var(--btn),#1c1e23);
+    border:1px solid var(--btn-edge);
+    border-radius:8px;
+    color:#cfd2d8;
+    font-size:16px;
+    display:flex;align-items:center;justify-content:center;
+    cursor:pointer;
+    box-shadow:0 2px 0 #0c0d10,inset 0 1px 0 rgba(255,255,255,.06);
+    transition:transform .04s,box-shadow .04s;
+    touch-action:manipulation;
+  }
+  .key:active{transform:translateY(2px);box-shadow:0 0 0 #0c0d10,inset 0 1px 0 rgba(255,255,255,.06);}
+  .key.empty{visibility:hidden;}
+  .key.ok{
+    grid-column:2;grid-row:2;
+    border-radius:50%;
+    background:radial-gradient(circle at 35% 30%,#43474f,#1a1c20);
+    font-size:9px;letter-spacing:1px;color:#9fe84a;
+  }
+  .hint{
+    margin-top:14px;
+    font-size:10.5px;
+    color:#6c6f75;
+    text-align:center;
+    line-height:1.5;
+    letter-spacing:.4px;
+  }
+  .hint b{color:#9aa0a8;}
+</style>
+</head>
+<body>
+  <div class="phone">
+    <div class="brand">SNAKE&nbsp;·&nbsp;3310</div>
+    <div class="speaker"></div>
+
+    <div class="screen-wrap">
+      <div class="screen">
+        <canvas id="game" width="364" height="234"></canvas>
+      </div>
+    </div>
+
+    <div class="pad">
+      <div class="dpad">
+        <div class="key empty"></div>
+        <div class="key" data-dir="up">▲</div>
+        <div class="key empty"></div>
+        <div class="key" data-dir="left">◄</div>
+        <div class="key ok" data-action="ok">OK</div>
+        <div class="key" data-dir="right">►</div>
+        <div class="key empty"></div>
+        <div class="key" data-dir="down">▼</div>
+        <div class="key empty"></div>
+      </div>
+    </div>
+
+    <div class="hint">
+      <b>Frecce</b> / <b>WASD</b> per muoverti<br>
+      <b>Invio</b> o <b>Spazio</b> per iniziare / riprovare
+    </div>
+  </div>
+
+<script>
+(() => {
+  "use strict";
+
+  // ---------- Canvas ----------
+  const canvas = document.getElementById("game");
+  const ctx = canvas.getContext("2d");
+  ctx.imageSmoothingEnabled = false;
+
+  const COLS = 26, ROWS = 15, CELL = 14;     // griglia di gioco
+  const TOPBAR = 24;                          // barra punteggio in alto
+  const W = canvas.width;                     // 364
+  const FIELD_Y = TOPBAR;                     // y di partenza campo
+  const FIELD_H = ROWS * CELL;                // 210
+
+  const C = {
+    bg:   getCss("--lcd-bg"),
+    grid: getCss("--lcd-grid"),
+    on:   getCss("--lcd-on"),
+  };
+  function getCss(v){ return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
+
+  // ---------- Font bitmap 5x7 ----------
+  const FONT = {
+    " ":["     ","     ","     ","     ","     ","     ","     "],
+    "A":[" ### ","#   #","#   #","#####","#   #","#   #","#   #"],
+    "B":["#### ","#   #","#   #","#### ","#   #","#   #","#### "],
+    "C":[" ####","#    ","#    ","#    ","#    ","#    "," ####"],
+    "D":["#### ","#   #","#   #","#   #","#   #","#   #","#### "],
+    "E":["#####","#    ","#    ","#### ","#    ","#    ","#####"],
+    "F":["#####","#    ","#    ","#### ","#    ","#    ","#    "],
+    "G":[" ####","#    ","#    ","#  ##","#   #","#   #"," ####"],
+    "H":["#   #","#   #","#   #","#####","#   #","#   #","#   #"],
+    "I":["#####","  #  ","  #  ","  #  ","  #  ","  #  ","#####"],
+    "J":["#####","   # ","   # ","   # ","   # ","#  # "," ##  "],
+    "K":["#   #","#  # ","# #  ","##   ","# #  ","#  # ","#   #"],
+    "L":["#    ","#    ","#    ","#    ","#    ","#    ","#####"],
+    "M":["#   #","## ##","# # #","# # #","#   #","#   #","#   #"],
+    "N":["#   #","##  #","# # #","#  ##","#   #","#   #","#   #"],
+    "O":[" ### ","#   #","#   #","#   #","#   #","#   #"," ### "],
+    "P":["#### ","#   #","#   #","#### ","#    ","#    ","#    "],
+    "Q":[" ### ","#   #","#   #","#   #","# # #","#  # "," ## #"],
+    "R":["#### ","#   #","#   #","#### ","# #  ","#  # ","#   #"],
+    "S":[" ####","#    ","#    "," ### ","    #","    #","#### "],
+    "T":["#####","  #  ","  #  ","  #  ","  #  ","  #  ","  #  "],
+    "U":["#   #","#   #","#   #","#   #","#   #","#   #"," ### "],
+    "V":["#   #","#   #","#   #","#   #","#   #"," # # ","  #  "],
+    "W":["#   #","#   #","#   #","# # #","# # #","## ##","#   #"],
+    "X":["#   #","#   #"," # # ","  #  "," # # ","#   #","#   #"],
+    "Y":["#   #","#   #"," # # ","  #  ","  #  ","  #  ","  #  "],
+    "Z":["#####","    #","   # ","  #  "," #   ","#    ","#####"],
+    "0":[" ### ","#   #","#  ##","# # #","##  #","#   #"," ### "],
+    "1":["  #  "," ##  ","  #  ","  #  ","  #  ","  #  ","#####"],
+    "2":[" ### ","#   #","    #","   # ","  #  "," #   ","#####"],
+    "3":["#####","   # ","  #  ","   # ","    #","#   #"," ### "],
+    "4":["   # ","  ## "," # # ","#  # ","#####","   # ","   # "],
+    "5":["#####","#    ","#### ","    #","    #","#   #"," ### "],
+    "6":["  ## "," #   ","#    ","#### ","#   #","#   #"," ### "],
+    "7":["#####","    #","   # ","  #  "," #   "," #   "," #   "],
+    "8":[" ### ","#   #","#   #"," ### ","#   #","#   #"," ### "],
+    "9":[" ### ","#   #","#   #"," ####","    #","   # "," ##  "],
+    ":":["     ","  #  ","     ","     ","     ","  #  ","     "],
+    "!":["  #  ","  #  ","  #  ","  #  ","  #  ","     ","  #  "],
+    "-":["     ","     ","     ","#####","     ","     ","     "],
+    ".":["     ","     ","     ","     ","     ","  ## ","  ## "],
+    "+":["     ","  #  ","  #  ","#####","  #  ","  #  ","     "],
+  };
+  const GLYPH_W = 5, GLYPH_H = 7, GLYPH_SP = 1;
+
+  function textWidth(str, s){ return str.length * (GLYPH_W + GLYPH_SP) * s - GLYPH_SP * s; }
+
+  function drawChar(ch, x, y, s){
+    const g = FONT[ch] || FONT[" "];
+    ctx.fillStyle = C.on;
+    for(let r=0;r<GLYPH_H;r++){
+      const row = g[r];
+      for(let c=0;c<GLYPH_W;c++){
+        if(row[c] === "#") ctx.fillRect(x + c*s, y + r*s, s, s);
+      }
+    }
+  }
+  function drawText(str, x, y, s){
+    str = String(str).toUpperCase();
+    let cx = x;
+    for(const ch of str){
+      drawChar(ch, cx, y, s);
+      cx += (GLYPH_W + GLYPH_SP) * s;
+    }
+  }
+  function drawTextCentered(str, y, s){
+    drawText(str, Math.round((W - textWidth(String(str).toUpperCase(), s)) / 2), y, s);
+  }
+
+  // ---------- Stato ----------
+  const STATE = { START:0, PLAY:1, OVER:2 };
+  let state, snake, dir, nextDir, food, score, hi, speed, stepAcc, lastTime, newHi;
+
+  hi = loadHi();
+
+  function loadHi(){
+    try { return parseInt(localStorage.getItem("snake3310_hi")) || 0; }
+    catch(e){ return 0; }
+  }
+  function saveHi(v){
+    try { localStorage.setItem("snake3310_hi", v); } catch(e){}
+  }
+
+  function reset(){
+    snake = [{x:8,y:7},{x:7,y:7},{x:6,y:7}];
+    dir = {x:1,y:0};
+    nextDir = {x:1,y:0};
+    score = 0;
+    speed = 130;        // ms per passo
+    stepAcc = 0;
+    newHi = false;
+    placeFood();
+  }
+
+  function placeFood(){
+    let p;
+    do { p = { x: (Math.random()*COLS)|0, y:(Math.random()*ROWS)|0 }; }
+    while(snake.some(s => s.x===p.x && s.y===p.y));
+    food = p;
+  }
+
+  // ---------- Input ----------
+  const DIRS = {
+    up:{x:0,y:-1}, down:{x:0,y:1}, left:{x:-1,y:0}, right:{x:1,y:0}
+  };
+  function setDir(name){
+    const d = DIRS[name];
+    if(!d) return;
+    if(state === STATE.PLAY){
+      // no inversione a 180°
+      if(d.x === -dir.x && d.y === -dir.y) return;
+      nextDir = d;
+    } else {
+      startGame(d);
+    }
+  }
+  function startGame(initialDir){
+    initAudio();
+    reset();
+    if(initialDir && !(initialDir.x === -dir.x && initialDir.y === -dir.y)){
+      dir = initialDir; nextDir = initialDir;
+    }
+    state = STATE.PLAY;
+  }
+
+  const KEYMAP = {
+    ArrowUp:"up", KeyW:"up",
+    ArrowDown:"down", KeyS:"down",
+    ArrowLeft:"left", KeyA:"left",
+    ArrowRight:"right", KeyD:"right",
+  };
+  window.addEventListener("keydown", (e) => {
+    if(KEYMAP[e.code]){ e.preventDefault(); setDir(KEYMAP[e.code]); return; }
+    if(e.code === "Enter" || e.code === "Space"){
+      e.preventDefault();
+      if(state !== STATE.PLAY) startGame();
+    }
+  });
+
+  // pad touch / click
+  document.querySelectorAll("[data-dir]").forEach(el => {
+    el.addEventListener("click", () => setDir(el.dataset.dir));
+  });
+  document.querySelector("[data-action='ok']").addEventListener("click", () => {
+    if(state !== STATE.PLAY) startGame();
+  });
+
+  // ---------- Audio (beep WebAudio, niente file esterni) ----------
+  let audioCtx = null;
+  function initAudio(){
+    if(audioCtx) return;
+    try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+    catch(e){ audioCtx = null; }
+  }
+  function beep(freq, dur, type="square"){
+    if(!audioCtx) return;
+    try{
+      const o = audioCtx.createOscillator();
+      const g = audioCtx.createGain();
+      o.type = type; o.frequency.value = freq;
+      g.gain.setValueAtTime(0.05, audioCtx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + dur);
+      o.connect(g); g.connect(audioCtx.destination);
+      o.start(); o.stop(audioCtx.currentTime + dur);
+    }catch(e){}
+  }
+
+  // ---------- Logica ----------
+  function step(){
+    dir = nextDir;
+    const head = { x: snake[0].x + dir.x, y: snake[0].y + dir.y };
+
+    // muri letali (stile 3310)
+    if(head.x < 0 || head.x >= COLS || head.y < 0 || head.y >= ROWS){ return gameOver(); }
+    // collisione con se stesso
+    if(snake.some(s => s.x === head.x && s.y === head.y)){ return gameOver(); }
+
+    snake.unshift(head);
+
+    if(head.x === food.x && head.y === food.y){
+      score++;
+      beep(880, 0.06);
+      if(speed > 70) speed -= 3;     // accelera
+      placeFood();
+    } else {
+      snake.pop();
+    }
+  }
+
+  function gameOver(){
+    state = STATE.OVER;
+    beep(440,0.12); setTimeout(()=>beep(330,0.12),120); setTimeout(()=>beep(220,0.2),240);
+    if(score > hi){ hi = score; newHi = true; saveHi(hi); }
+  }
+
+  // ---------- Rendering ----------
+  function cell(cx, cy, inset){
+    const x = cx*CELL, y = FIELD_Y + cy*CELL;
+    ctx.fillRect(x + inset, y + inset, CELL - inset*2, CELL - inset*2);
+  }
+
+  function drawDotMatrix(){
+    // leggera trama LCD (pixel spenti)
+    ctx.fillStyle = C.grid;
+    for(let r=0;r<ROWS;r++){
+      for(let c=0;c<COLS;c++){
+        ctx.fillRect(c*CELL + CELL/2 - 0.5, FIELD_Y + r*CELL + CELL/2 - 0.5, 1.5, 1.5);
+      }
+    }
+  }
+
+  function render(now){
+    // sfondo
+    ctx.fillStyle = C.bg;
+    ctx.fillRect(0,0,W,canvas.height);
+
+    drawDotMatrix();
+
+    // barra punteggio
+    drawText(pad(score,3), 4, 5, 2);
+    const hiStr = "HI " + pad(hi,3);
+    drawText(hiStr, W - textWidth(hiStr,2) - 4, 5, 2);
+    // separatore
+    ctx.fillStyle = C.on;
+    ctx.fillRect(0, TOPBAR-2, W, 1);
+    // bordo campo (i muri)
+    ctx.fillRect(0, FIELD_Y, W, 1);
+    ctx.fillRect(0, FIELD_Y+FIELD_H-1, W, 1);
+    ctx.fillRect(0, FIELD_Y, 1, FIELD_H);
+    ctx.fillRect(W-1, FIELD_Y, 1, FIELD_H);
+
+    const blink = Math.floor(now/350) % 2 === 0;
+
+    if(state === STATE.START){
+      drawTextCentered("SNAKE", FIELD_Y + 40, 4);
+      if(blink) drawTextCentered("PRESS ENTER", FIELD_Y + 110, 2);
+      drawTextCentered("ARROWS / WASD", FIELD_Y + 150, 1);
+      return;
+    }
+
+    // cibo (quadrato vuoto lampeggiante)
+    if(blink || state !== STATE.PLAY){
+      ctx.fillStyle = C.on;
+      const fx = food.x*CELL, fy = FIELD_Y + food.y*CELL;
+      ctx.fillRect(fx+2, fy+2, CELL-4, 2);
+      ctx.fillRect(fx+2, fy+CELL-4, CELL-4, 2);
+      ctx.fillRect(fx+2, fy+2, 2, CELL-4);
+      ctx.fillRect(fx+CELL-4, fy+2, 2, CELL-4);
+    }
+
+    // serpente (blocchi pieni con 1px di stacco)
+    ctx.fillStyle = C.on;
+    snake.forEach((s,i) => {
+      cell(s.x, s.y, 1);
+      if(i === 0){ // occhio sulla testa
+        ctx.fillStyle = C.bg;
+        ctx.fillRect(s.x*CELL + CELL/2 - 1, FIELD_Y + s.y*CELL + CELL/2 - 1, 2, 2);
+        ctx.fillStyle = C.on;
+      }
+    });
+
+    if(state === STATE.OVER){
+      // pannello
+      ctx.fillStyle = C.bg;
+      ctx.fillRect(20, FIELD_Y+50, W-40, 110);
+      ctx.fillStyle = C.on;
+      ctx.fillRect(20, FIELD_Y+50, W-40, 110);
+      ctx.fillStyle = C.bg;
+      ctx.fillRect(22, FIELD_Y+52, W-44, 106);
+      ctx.fillStyle = C.on;
+      drawTextCentered("GAME OVER", FIELD_Y + 62, 2);
+      drawTextCentered("SCORE " + pad(score,3), FIELD_Y + 90, 2);
+      if(newHi && blink) drawTextCentered("NEW HI!", FIELD_Y + 112, 2);
+      if(blink) drawTextCentered("PRESS ENTER", FIELD_Y + 138, 1);
+    }
+  }
+
+  function pad(n, len){ return String(n).padStart(len,"0"); }
+
+  // ---------- Loop ----------
+  function loop(now){
+    if(!lastTime) lastTime = now;
+    const dt = now - lastTime;
+    lastTime = now;
+
+    if(state === STATE.PLAY){
+      stepAcc += dt;
+      while(stepAcc >= speed){ step(); stepAcc -= speed; if(state!==STATE.PLAY) break; }
+    }
+    render(now);
+    requestAnimationFrame(loop);
+  }
+
+  // ---------- Avvio ----------
+  reset();
+  state = STATE.START;
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
